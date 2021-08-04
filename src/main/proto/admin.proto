@@ -1,3 +1,255 @@
 syntax = "proto3";
 package io.axoniq.axonserver.grpc.admin;
+
+import "common.proto";
+import "control.proto";
+
 option java_multiple_files = true;
+
+service EventProcessorAdminService {
+
+    /* TODO */
+    rpc PauseEventProcessor(EventProcessorIdentifier) returns (InstructionAck);
+
+    rpc StartEventProcessor(EventProcessorIdentifier) returns (InstructionAck);
+
+    rpc SplitStreamableEventProcessor(EventProcessorIdentifier) returns (InstructionAck);
+
+    rpc MergeStreamableEventProcessor(EventProcessorIdentifier) returns (InstructionAck);
+
+    rpc LoadBalanceStreamableEventProcessor(LoadBalanceEventProcessor) returns (InstructionAck);
+
+    rpc AutoLoadBalanceStreamableEventProcessor(LoadBalanceEventProcessor) returns (InstructionAck);
+
+    rpc GetEventProcessor(EventProcessorIdentifier) returns (EventProcessor);
+
+    rpc GetEventProcessorsPerComponent(ComponentId) returns (stream EventProcessor);
+
+    rpc GetEventProcessorsPerContext(ContextId) returns (stream EventProcessor);
+
+}
+
+service ContextAdminService {
+
+    rpc GetReplicationGroups(Empty) returns (stream ReplicationGroupInfo);
+
+    rpc CreateReplicationGroup(ReplicationGroup) returns (InstructionAck);
+
+    rpc DeleteReplicationGroup(ReplicationGroupId) returns (InstructionAck) ;
+
+    rpc AddNodeToReplicationGroup(JoinReplicationGroup) returns (InstructionAck) ;
+
+    rpc RemoveNodeFromReplicationGroup(LeaveReplicationGroup) returns (InstructionAck) ;
+
+    rpc CreateContext(ReplicationGroupContext) returns (InstructionAck) ;
+
+    rpc DeleteContext(ContextId) returns (InstructionAck) ;
+
+    rpc GetContext(ContextId) returns (ContextOverview) ;
+
+    rpc GetContexts(Empty) returns (stream ContextOverview) ;
+
+    rpc SubscribeContextUpdates(Empty) returns (stream ContextUpdate) ;
+}
+
+service  ApplicationAdminService {
+    rpc CreateApplication(Application) returns (Application);
+
+    rpc DeleteApplication(ApplicationId) returns (InstructionAck);
+
+    rpc GetApplication(ApplicationId) returns (Application);
+
+    rpc SubscribeApplicationUpdates(Empty) returns (stream Application);
+
+    rpc GetApplications(Empty) returns (stream Application);
+
+    rpc RefreshToken(ApplicationId) returns (Application);
+}
+
+service  ComponentAdminService {
+
+    rpc GetComponent(ComponentId) returns (Component);
+
+    rpc SubscribeComponentUpdates(ComponentId) returns (stream ComponentUpdate) ;//TODO it is really needed
+
+
+    rpc SubscribeComponentsUpdates(Empty) returns (stream ComponentUpdate) ;//TODO it is really needed
+
+
+    rpc GetComponents(Empty) returns (stream Component) ;
+
+}
+
+//TODO add plugin API
+
+message JoinReplicationGroup {
+    string replication_group_name = 1;
+    string node_name = 2;
+    Role role = 3;
+}
+
+message LeaveReplicationGroup {
+    string replication_group_name = 1;
+    string node_name = 2;
+}
+
+enum Role {//TODO move in common?
+    ROLE_PRIMARY = 0;
+    ROLE_ACTIVE_BACKUP = 2;
+    ROLE_PASSIVE_BACKUP = 3;
+    ROLE_MESSAGING_ONLY = 4;
+    ROLE_SECONDARY = 5;
+}
+
+
+message ReplicationGroupContext {
+    string replication_group_name = 1;
+    string context_name = 2;
+    map<string, string> meta_data = 3;
+}
+
+message ReplicationGroup {
+    string name = 1;
+    repeated ReplicationGroupMember members = 2;
+}
+
+message ReplicationGroupMember {
+    string node_id = 1;
+    string host = 2;
+    int32 port = 3;
+    string node_name = 4;
+    Role role = 5;
+}
+
+message ComponentId {
+    string name = 1;
+    string context = 2; //TODO check if really needed
+}
+
+message ApplicationId {
+    string name = 1;
+}
+
+message ReplicationGroupId {
+    string name = 1;
+}
+
+message ContextId {
+    string name = 1;
+}
+
+message ContextOverview {
+    string context = 1;
+    repeated string nodes = 2;
+    map<string, MetaDataValue> meta_data = 4;
+}
+
+
+message ContextUpdate {
+    string context = 1;
+    ContextUpdateType type = 2;
+}
+
+
+enum ContextUpdateType {
+
+    /* new context has been added. */
+    ADDED = 0;
+
+    /* context has been deleted */
+    DELETED = 1;
+
+}
+
+message Component {
+    string name = 1;
+    repeated Client clients = 2;
+    repeated string commands = 3;
+    repeated QueryInfo queries = 4;
+}
+
+
+message ComponentUpdate {
+    string component = 1;
+    string clientId = 2; //TODO or name?
+    string context = 3;
+    ComponentUpdateType type = 4;
+}
+
+
+enum ComponentUpdateType {
+
+    /* component has been connected. */
+    CONNECTED = 0;
+
+    /* component has been deleted */
+    DISCONNECTED = 1;
+
+}
+
+message Client {
+    string name = 1;
+    string node = 2;
+    repeated io.axoniq.axonserver.grpc.control.EventProcessorInfo processors = 3;
+}
+
+message ClientRequest {
+    string name = 1;
+    string processor = 2;
+    string context = 3;
+}
+
+message QueryInfo {
+    string request = 1;
+    repeated string response_types = 2;
+}
+
+message ReplicationGroupInfo {
+    string name = 1;
+    repeated string contexts = 2;
+    repeated string member_names = 3;
+}
+
+message EventProcessorIdentifier {
+
+    string context = 1;
+
+    string processor_name = 2;
+
+    string token_store_identifier = 3;
+
+}
+
+message EventProcessor {
+    EventProcessorIdentifier event_processor_identifier = 1;
+    repeated ClaimedSegment claimed_segments = 2;
+}
+
+message ClaimedSegment {
+    int32 segment_id = 1;
+    string client_id = 2;
+    int32 part_of = 3;
+}
+
+message LoadBalanceEventProcessor {
+    EventProcessorIdentifier event_processor_identifier = 1;
+    string strategy = 2;
+}
+
+message Empty {
+
+}
+
+message Application {
+    string name = 1;
+    string description = 2;
+    string token_prefix = 3;
+    string token = 4;
+    repeated ApplicationContextRole roles_per_context = 5;
+    map<string, string> meta_data = 6;
+}
+
+message ApplicationContextRole {
+    string context = 1;
+    repeated string roles = 2;
+}
